@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[2], "k") == 0 || strcmp(argv[2], "K") == 0 || strcmp(argv[2], "kelvin") == 0 || strcmp(argv[2], "Kelvin") == 0)
         {
             float output = Kelvin_conversion(atof(argv[arg]), argv);
-            printf("%f\n", output);
+            printf("%.2f\n", output);
         }
         else if (strcmp(argv[2], "°C") == 0 || strcmp(argv[2], "c") == 0 || strcmp(argv[2], "C") == 0 || strcmp(argv[2], "celsius") == 0 || strcmp(argv[2], "Celsius") == 0)
         {
