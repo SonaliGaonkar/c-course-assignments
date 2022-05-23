@@ -1,93 +1,138 @@
+#include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-float Fahrenheit_conversion(float INPUT, char *argv[])
+bool isInList(const char *str, const char *strings[])
 {
-    if (strcmp(argv[1], "k") == 0 || strcmp(argv[1], "K") == 0 || strcmp(argv[1], "kelvin") == 0 || strcmp(argv[1], "Kelvin") == 0)
-    {
-        return 9 / 5 * (INPUT - 273.15) + 32;
-    }
-    else if (strcmp(argv[1], "°C") == 0 || strcmp(argv[1], "c") == 0 || strcmp(argv[1], "C") == 0 || strcmp(argv[1], "celsius") == 0 || strcmp(argv[1], "Celsius") == 0)
-    {
-        return (9 / 5 * INPUT) + 32;
-    }
-    else
-    {
-        fprintf(stderr, "temp_convert: error: Unrecognized  INPUT scale %s", argv[1]);
-        abort();
-        return EXIT_FAILURE;
-    }
+    for (; *strings != NULL; strings++)
+        if (strcmp(str, *strings) == 0)
+            return true;
+    return false;
 }
 
-float Kelvin_conversion(float INPUT, char *argv[])
+bool celsiusIsScale(const char *str)
 {
-    if (strcmp(argv[1], "°F") == 0 || strcmp(argv[1], "f") == 0 || strcmp(argv[1], "F") == 0 || strcmp(argv[1], "fahrenheit") == 0 || strcmp(argv[1], "Fahrenheit") == 0)
-    {
-        return 5 / 9 * (INPUT - 32) + 273.15;
-    }
-    else if (strcmp(argv[1], "°C") == 0 || strcmp(argv[1], "c") == 0 || strcmp(argv[1], "C") == 0 || strcmp(argv[1], "celsius") == 0 || strcmp(argv[1], "Celsius") == 0)
-    {
-        return INPUT + 273.15;
-    }
-    else
-    {
-        fprintf(stderr, "temp_convert: error: Unrecognized  INPUT scale %s", argv[1]);
-        abort();
-        return EXIT_FAILURE;
-    }
+    const char *celsiusStrings[] = {"C", "°C", "c", "Celsius", "celsius", NULL};
+    return isInList(str, celsiusStrings);
 }
 
-float Celsius_conversion(float INPUT, char *argv[])
+double celsiusToKelvin(double celsius)
 {
-    if (strcmp(argv[1], "°F") == 0 || strcmp(argv[1], "f") == 0 || strcmp(argv[1], "F") == 0 || strcmp(argv[1], "fahrenheit") == 0 || strcmp(argv[1], "Fahrenheit") == 0)
+    return celsius + 273.15;
+}
+
+double celsiusFromKelvin(double kelvin)
+{
+    return kelvin - 273.15;
+}
+
+bool fahrenheitIsScale(const char *str)
+{
+    const char *fahrenheitStrings[] = {"F", "°F", "f", "Fahrenheit", "fahrenheit", NULL};
+    return isInList(str, fahrenheitStrings);
+}
+
+double fahrenheitToKelvin(double fahrenheit)
+{
+    return (fahrenheit + 459.67) * 5 / 9;
+}
+
+double fahrenheitFromKelvin(double kelvin)
+{
+    return kelvin * 9 / 5 - 459.67;
+}
+
+bool kelvinIsScale(const char *str)
+{
+    const char *kelvinStrings[] = {"K", "k", "Kelvin", "kelvin", NULL};
+    return isInList(str, kelvinStrings);
+}
+
+double kelvinToKelvin(double kelvin)
+{
+    return kelvin;
+}
+
+double kelvinFromKelvin(double kelvin)
+{
+    return kelvin;
+}
+struct TemperatureScale
+{
+    bool (*isScale)(const char *str);
+    double (*toKelvin)(double);
+    double (*fromKelvin)(double);
+};
+
+struct TemperatureScale celsius = {
+    celsiusIsScale,
+    celsiusToKelvin,
+    celsiusFromKelvin,
+};
+
+struct TemperatureScale fahrenheit = {
+    fahrenheitIsScale,
+    fahrenheitToKelvin,
+    fahrenheitFromKelvin,
+};
+
+struct TemperatureScale kelvin = {
+    kelvinIsScale,
+    kelvinToKelvin,
+    kelvinFromKelvin,
+};
+
+typedef double (*converter_t)(double);
+converter_t getToKelvinFunction(char *temperatureScale)
+{
+    struct TemperatureScale temperatureScales[] = {
+        celsius, fahrenheit, kelvin};
+    for (int i = 0; i < sizeof(temperatureScales) / sizeof(temperatureScales[0]); i++)
     {
-        return (INPUT - 32) * (5 / 9);
+        if (temperatureScales[i].isScale(temperatureScale))
+        {
+            return temperatureScales[i].toKelvin;
+        }
     }
-    else if (strcmp(argv[1], "k") == 0 || strcmp(argv[1], "K") == 0 || strcmp(argv[1], "kelvin") == 0 || strcmp(argv[1], "Kelvin") == 0)
+    fprintf(stderr, "error: Unsupported temperature scale: %s\n", temperatureScale);
+    exit(EXIT_FAILURE);
+}
+
+converter_t getFromKelvinFunction(char *temperatureScale)
+{
+    struct TemperatureScale temperatureScales[] = {
+        celsius, fahrenheit, kelvin};
+    for (int i = 0; i < sizeof(temperatureScales) / sizeof(temperatureScales[0]); i++)
     {
-        return INPUT - 273.15;
+        if (temperatureScales[i].isScale(temperatureScale))
+        {
+            return temperatureScales[i].fromKelvin;
+        }
     }
-    else
-    {
-        fprintf(stderr, "temp_convert: error: Unrecognized  INPUT scale %s", argv[1]);
-        abort();
-        return EXIT_FAILURE;
-    }
+    fprintf(stderr, "error: Unsupported temperature scale: %s\n", temperatureScale);
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
 {
-    if (argv[1] == NULL)
+    if (argc < 3)
     {
-        fprintf(stderr, "temp_convert: error: Not enough arguments.\n");
-        fprintf(stderr, "Usage: temp_convert INPUT_SCALE OUTPUT_SCALE [ TEMPERATURE]...");
-        abort();
+        fprintf(stderr, "%s: error: Not enough arguments.\nUsage: %s INPUT_SCALE OUTPUT_SCALE [TEMPERATURE]...\n", argv[0], argv[0]);
         return EXIT_FAILURE;
     }
-    for (int arg = 3; arg < argc; arg++)
+
+    converter_t toKelvin = getToKelvinFunction(argv[1]);
+    converter_t fromKelvin = getFromKelvinFunction(argv[2]);
+
+    for (int i = 3; i < argc; i++)
     {
-        if (strcmp(argv[2], "°F") == 0 || strcmp(argv[2], "f") == 0 || strcmp(argv[2], "F") == 0 || strcmp(argv[2], "fahrenheit") == 0 || strcmp(argv[2], "Fahrenheit") == 0)
-        {
-            float output = Fahrenheit_conversion(atof(argv[arg]), argv);
-            printf("%.2f\n", output);
-        }
-        else if (strcmp(argv[2], "k") == 0 || strcmp(argv[2], "K") == 0 || strcmp(argv[2], "kelvin") == 0 || strcmp(argv[2], "Kelvin") == 0)
-        {
-            float output = Kelvin_conversion(atof(argv[arg]), argv);
-            printf("%.2f\n", output);
-        }
-        else if (strcmp(argv[2], "°C") == 0 || strcmp(argv[2], "c") == 0 || strcmp(argv[2], "C") == 0 || strcmp(argv[2], "celsius") == 0 || strcmp(argv[2], "Celsius") == 0)
-        {
-            float output = Celsius_conversion(atof(argv[arg]), argv);
-            printf("%.2f\n", output);
-        }
-        else
-        {
-            fprintf(stderr, "temp_convert: error: Unrecognized  INPUT scale %s", argv[2]);
-            abort();
-            return EXIT_FAILURE;
-        }
+        double inputTemperature = atof(argv[i]);
+        double temperature = toKelvin(inputTemperature);
+        double outputTemperature = fromKelvin(temperature);
+
+        printf("%f\n", outputTemperature);
     }
     return EXIT_SUCCESS;
 }
